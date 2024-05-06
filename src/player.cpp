@@ -89,16 +89,17 @@ void Player::update(float deltaTime)
 
 const char* Player::getScore()
 {
-	std::string s = std::to_string(score);
-	s = "TIME: " + s;
-	return s.c_str();
+    static std::string s;
+    s = "TIME: " + std::to_string(score);
+    return s.c_str();
 }
+
 
 const char* Player::getHighscore()
 {
-	std::string s = std::to_string(highscore);
-	s = "BEST: " + s;
-	return s.c_str();
+   static std::string s;
+    s = "BEST: " + std::to_string(score);
+    return s.c_str();
 }
 
 int Player::getScoreInt()

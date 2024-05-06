@@ -66,7 +66,7 @@ bool init()
 	IMG_Init(IMG_INIT_PNG);
 	TTF_Init();
 
-	window.create("Mizu no Yōsei", RenderWindow::getWidth(), RenderWindow::getHeight() );
+	window.create("Mizu no Yosei", RenderWindow::getWidth(), RenderWindow::getHeight() );
 	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
 
 	srand((unsigned)time(0));
@@ -211,7 +211,7 @@ void gameLoop()
 		if (SDL_GetTicks() < 2500)
 		{
 			window.clear();
-			window.renderCenter(0, sin(SDL_GetTicks()/100) * 2 - 4, "MIZU NO YŌSEI", font24, white);
+			window.renderCenter(0, sin(SDL_GetTicks()/100) * 2 - 4, "MIZU NO YOSEI", font24, white);
 			window.display();
 		}
 		else 
