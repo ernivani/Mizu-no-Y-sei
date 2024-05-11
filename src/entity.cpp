@@ -91,6 +91,13 @@ SDL_Texture* Entity::getTex(int p_index)
 	return tex.at(p_index);
 }
 
+void Entity::setTexture(int p_index)
+{
+	currentFrame.x = 0;
+	currentFrame.y = 0;
+	SDL_QueryTexture(tex.at(p_index), NULL, NULL, &currentFrame.w, &currentFrame.h);
+}
+
 SDL_Rect Entity::getCurrentFrame()
 {
 	return currentFrame;

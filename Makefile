@@ -1,4 +1,4 @@
-SRC = src/main.cpp src/entity.cpp src/player.cpp src/renderwindow.cpp
+SRC = src/main.cpp src/entity.cpp src/player.cpp src/renderwindow.cpp src/shark.cpp
 INCLUDES = -Iinclude
 DLLS = SDL2.dll SDL2_image.dll SDL2_ttf.dll SDL2_mixer.dll
 OUT_DIR = out
@@ -27,7 +27,7 @@ else
     XCOPY = cp -r
 endif
 
-all: $(OUT) copy-dlls
+all: $(OUT) copy-dlls run
 
 $(OUT): $(SRC)
 	$(CC) $(SRC) $(INCLUDES) -Llib -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer -o $(OUT)
@@ -40,6 +40,9 @@ $(OUT_JS): $(SRC)
 copy-dlls:
 	$(foreach DLL, $(DLLS), $(COPY) $(DLL) $(OUT_DIR) &)
 	$(XCOPY) res $(OUT_DIR)\res /E /I /Y
+
+run:
+	$(OUT_DIR)/main.exe
 
 clean:
 	-$(RM) $(OUT_DIR)\*.exe

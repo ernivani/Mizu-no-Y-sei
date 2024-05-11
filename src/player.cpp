@@ -11,6 +11,7 @@
 const float GRAVITY = 9.81;
 const float WATER_DRAG = 1;
 const int ALIVE = 0;
+const int SHARK_DEATH = 1;
 const int HOLE_DEATH = 2;
 
 Player::Player(float p_x, float p_y, std::vector<SDL_Texture*> p_tex)
@@ -110,6 +111,11 @@ int Player::getScoreInt()
 int Player::isDead()
 {
 	return dead;
+}
+
+void Player::setDead(int p_dead)
+{
+	dead = p_dead;
 }
 
 void Player::reset()

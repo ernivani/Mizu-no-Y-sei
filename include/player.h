@@ -16,6 +16,7 @@ public:
 	const char* getHighscore();
 	int getScoreInt();
 	int isDead();
+	void setDead(int p_dead);
 	void reset();
 private:
 	float velocityX, velocityY;

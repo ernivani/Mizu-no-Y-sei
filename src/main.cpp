@@ -18,9 +18,11 @@
 #include "renderwindow.h"
 #include "entity.h"
 #include "player.h"
+#include "shark.h"
 
  
 const int ALIVE = 0;
+const int SHARK_DEATH = 1;
 const int HOLE_DEATH = 2;
 
 const Uint8 *keyState;
@@ -32,6 +34,8 @@ SDL_Texture* arrow;
 SDL_Texture* highscoreBox;
 SDL_Texture* deathOverlay;
 // SDL_Texture* logo;
+
+std::vector<SDL_Texture*> sharkTex;
 
 SDL_Texture* far;
 SDL_Texture* foregroundMerged;
@@ -52,6 +56,12 @@ Mix_Chunk* fallSfx;
 Mix_Chunk* hitSfx;
 Mix_Chunk* clickSfx;
 
+// sharks
+std::vector<Shark> sharks;
+Uint32 lastSharkSpawnTime = 0;
+int sharkSpawnInterval = 5000;  // Initial interval in milliseconds
+
+
 Uint32 lastTime = SDL_GetTicks();
 Uint32 currentTime;
 float deltaTime;
@@ -59,6 +69,8 @@ float deltaTime;
 bool gameRunning = true;
 bool playedDeathSFX = false;
 bool mainMenu = true;
+
+
 
 bool init()
 {
@@ -76,6 +88,15 @@ bool init()
 	playerTex.push_back(window.loadTexture("res/textures/player/player_2.png"));
 	playerTex.push_back(window.loadTexture("res/textures/player/player_3.png"));
 	playerTex.push_back(window.loadTexture("res/textures/player/player_4.png"));
+
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark1.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark2.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark3.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark4.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark5.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark6.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark7.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark8.png"));
 
 	far = window.loadTexture("res/textures/background/far.png");
     foregroundMerged = window.loadTexture("res/textures/background/foregound-merged.png");
@@ -99,7 +120,7 @@ bool init()
 	hitSfx = Mix_LoadWAV("res/sounds/hit.wav");
 	clickSfx = Mix_LoadWAV("res/sounds/click.wav");
 	Mix_PlayChannel(-1, jumpSfx, 0);
-
+	sharks.push_back(Shark(800, RenderWindow::getHeight() - 150, sharkTex));
 	return true;
 }
 
@@ -146,12 +167,13 @@ void renderRepeatingBackground() {
 
 
 bool load = init();
-
 Player player(RenderWindow::getWidth() / 2, RenderWindow::getHeight() - 64, playerTex);
+
 
 void reset()
 {
 	player.reset();
+	sharks.clear();
 }
 void gameLoop()
 {
@@ -226,6 +248,14 @@ void gameLoop()
 	}
 	else
 	{
+		if (currentTime - lastSharkSpawnTime > sharkSpawnInterval) {
+			float randomHeight = static_cast<float>(rand() % (RenderWindow::getHeight() - 100));  // Random height from 0 to window height minus 100
+			sharks.push_back(Shark(RenderWindow::getWidth(), randomHeight, sharkTex));
+			lastSharkSpawnTime = currentTime;
+
+			// Decrease interval based on the score to make game harder
+			sharkSpawnInterval = std::max(1000, 5000 - (player.getScoreInt() * 10));
+		}
 		if (player.isDead() == ALIVE)
 		{
 			player.update(deltaTime);
@@ -241,6 +271,21 @@ void gameLoop()
 
 		window.clear();
         renderRepeatingBackground();
+		for (auto& shark : sharks) {
+			shark.update(deltaTime);
+			SDL_Rect destRect;
+			destRect.x = static_cast<int>(shark.getX());
+			destRect.y = static_cast<int>(shark.getY());
+			destRect.w = shark.getWidth() * 2;
+			destRect.h = shark.getHeight() * 2;
+
+			SDL_RenderCopy(window.getRenderer(), shark.getCurrentTexture(), NULL, &destRect);
+
+			if (shark.isTouchingPlayer(player)) {
+				player.setDead(SHARK_DEATH);
+			}
+		}
+
 
 		window.render(player);
 		window.render(25, 30, arrow);
@@ -248,6 +293,8 @@ void gameLoop()
 		window.render(65, 23, player.getScore(), font32, white);
 		window.render(0, 65, highscoreBox);
 		window.render(65, 64, player.getHighscore(), font16, white);
+
+
 
 		if (player.isDead() != ALIVE)
 		{
@@ -257,14 +304,18 @@ void gameLoop()
 			{
 				window.renderCenter(0, -24, "The Ocean is a dangerous place.", font24, white);
 			}
+			if (player.isDead() == SHARK_DEATH)
+			{
+				window.renderCenter(0, -24, "A shark just ate you.", font24, white);
+			}
 			window.renderCenter(0, 12, "Click to retry.", font16, white);
 		}
-
 		
 		int mouseX, mouseY;
 		SDL_GetMouseState(&mouseX, &mouseY);
 		SDL_Color attractionZoneColor = {0, 255, 0, 255};
 		window.drawCircle(mouseX, mouseY, 100.0f, attractionZoneColor, false);
+
 		window.display();
 	}
 }
