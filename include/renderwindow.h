@@ -13,6 +13,7 @@ private:
 public:
 	RenderWindow();
 	void create(const char* p_title, int p_w, int p_h);
+	void createRenderer();
 	SDL_Texture* loadTexture(const char* p_filePath);
 	void clear();
 	void render(Entity& p_entity);

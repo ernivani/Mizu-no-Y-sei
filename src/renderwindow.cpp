@@ -22,8 +22,20 @@ void RenderWindow::create(const char* p_title, int p_w, int p_h)
 
 	if (window == NULL)
 		std::cout << "Window failed to init. Error: " << SDL_GetError() << std::endl;
+}
 
+void RenderWindow::createRenderer()
+{
+#ifdef __EMSCRIPTEN__
+	SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
+	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+#else
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+#endif
+
+	if (renderer == NULL)
+		std::cout << "Renderer failed to init. Error: " << SDL_GetError() << std::endl;
 }
 
 

@@ -1,6 +1,5 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
-#include <emscripten/html5.h>
 #endif
 
 
@@ -15,6 +14,7 @@
 #include <stdlib.h>
 #include <deque>
 #include <algorithm>
+#include <new>
 
 #include "renderwindow.h"
 #include "entity.h"
@@ -71,55 +71,6 @@ bool mainMenu = true;
 
 
 
-bool init()
-{
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
-	IMG_Init(IMG_INIT_PNG);
-	TTF_Init();
-
-	window.create("Mizu no Yosei", RenderWindow::getWidth(), RenderWindow::getHeight() );
-	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
-
-	srand((unsigned)time(0));
-
-	playerTex.push_back(window.loadTexture("res/textures/player/player_0.png"));
-	playerTex.push_back(window.loadTexture("res/textures/player/player_1.png"));
-	playerTex.push_back(window.loadTexture("res/textures/player/player_2.png"));
-	playerTex.push_back(window.loadTexture("res/textures/player/player_3.png"));
-	playerTex.push_back(window.loadTexture("res/textures/player/player_4.png"));
-
-	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark1.png"));
-	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark2.png"));
-	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark3.png"));
-	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark4.png"));
-	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark5.png"));
-	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark6.png"));
-	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark7.png"));
-	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark8.png"));
-
-	far = window.loadTexture("res/textures/background/far.png");
-    foregroundMerged = window.loadTexture("res/textures/background/foregound-merged.png");
-    foreground1 = window.loadTexture("res/textures/background/foreground-1.png");
-    foreground2 = window.loadTexture("res/textures/background/foreground-2.png");
-    sand = window.loadTexture("res/textures/background/sand.png");
-
-	arrow = window.loadTexture("res/textures/arrow.png");
-	highscoreBox = window.loadTexture("res/textures/highscore_box.png");
-	deathOverlay = window.loadTexture("res/textures/death_overlay.png");
-
-	font32 = TTF_OpenFont("res/fonts/cocogoose.ttf", 32);
-	font32_outline = TTF_OpenFont("res/fonts/cocogoose.ttf", 32);
-	font24 = TTF_OpenFont("res/fonts/cocogoose.ttf", 24);
-	font16 = TTF_OpenFont("res/fonts/cocogoose.ttf", 16);
-	TTF_SetFontOutline(font32_outline, 3); 
-
-	jumpSfx = Mix_LoadWAV("res/sounds/jump.wav");
-	fallSfx = Mix_LoadWAV("res/sounds/fall.wav");
-	hitSfx = Mix_LoadWAV("res/sounds/hit.wav");
-	clickSfx = Mix_LoadWAV("res/sounds/click.wav");
-	return true;
-}
-
 struct BackgroundLayer {
     float positionx;
 	float positiony;
@@ -161,8 +112,8 @@ void renderRepeatingBackground() {
 }
 
 
-bool load = init();
-Player player(RenderWindow::getWidth() / 2, RenderWindow::getHeight() - 64, playerTex);
+alignas(Player) static unsigned char playerStorage[sizeof(Player)];
+Player& player = *reinterpret_cast<Player*>(playerStorage);
 
 
 int laneCount()
@@ -370,23 +321,65 @@ void gameLoop()
 	}
 }
 
-int main(int argc, char* args[])
+void startGame()
 {
+	window.createRenderer();
+	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
+
+	srand((unsigned)time(0));
+
+	playerTex.push_back(window.loadTexture("res/textures/player/player_0.png"));
+	playerTex.push_back(window.loadTexture("res/textures/player/player_1.png"));
+	playerTex.push_back(window.loadTexture("res/textures/player/player_2.png"));
+	playerTex.push_back(window.loadTexture("res/textures/player/player_3.png"));
+	playerTex.push_back(window.loadTexture("res/textures/player/player_4.png"));
+
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark1.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark2.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark3.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark4.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark5.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark6.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark7.png"));
+	sharkTex.push_back(window.loadTexture("res/textures/shark/Shark8.png"));
+
+	far = window.loadTexture("res/textures/background/far.png");
+	foregroundMerged = window.loadTexture("res/textures/background/foregound-merged.png");
+	foreground1 = window.loadTexture("res/textures/background/foreground-1.png");
+	foreground2 = window.loadTexture("res/textures/background/foreground-2.png");
+	sand = window.loadTexture("res/textures/background/sand.png");
+
+	arrow = window.loadTexture("res/textures/arrow.png");
+	highscoreBox = window.loadTexture("res/textures/highscore_box.png");
+	deathOverlay = window.loadTexture("res/textures/death_overlay.png");
+
+	font32 = TTF_OpenFont("res/fonts/cocogoose.ttf", 32);
+	font32_outline = TTF_OpenFont("res/fonts/cocogoose.ttf", 32);
+	font24 = TTF_OpenFont("res/fonts/cocogoose.ttf", 24);
+	font16 = TTF_OpenFont("res/fonts/cocogoose.ttf", 16);
+	TTF_SetFontOutline(font32_outline, 3);
+
+	jumpSfx = Mix_LoadWAV("res/sounds/jump.wav");
+	fallSfx = Mix_LoadWAV("res/sounds/fall.wav");
+	hitSfx = Mix_LoadWAV("res/sounds/hit.wav");
+	clickSfx = Mix_LoadWAV("res/sounds/click.wav");
+
+	new (playerStorage) Player(RenderWindow::getWidth() / 2, RenderWindow::getHeight() - 64, playerTex);
 	initBackgroundLayers();
 	SDL_SetWindowResizable(window.getWindow(), SDL_TRUE);
 
-	#ifdef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
 	emscripten_set_main_loop(gameLoop, 0, 1);
-	#else
-	while (gameRunning) 
+#else
+	while (gameRunning)
 	{
 		Uint32 frameStart = SDL_GetTicks();
-    	gameLoop();
+		gameLoop();
 		Uint32 elapsed = SDL_GetTicks() - frameStart;
 		if (elapsed < 16)
 			SDL_Delay(16 - elapsed);
 	}
-	#endif
+#endif
 
 	window.cleanUp();
 	TTF_CloseFont(font32);
@@ -395,6 +388,30 @@ int main(int argc, char* args[])
 	TTF_CloseFont(font16);
 	TTF_Quit();
 	SDL_Quit();
+}
+
+#ifdef __EMSCRIPTEN__
+void startGameAsync(void*)
+{
+	startGame();
+}
+#endif
+
+int main(int argc, char* args[])
+{
+#ifdef __EMSCRIPTEN__
+	SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, "0");
+#endif
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+	IMG_Init(IMG_INIT_PNG);
+	TTF_Init();
+	window.create("Mizu no Yosei", RenderWindow::getWidth(), RenderWindow::getHeight());
+
+#ifdef __EMSCRIPTEN__
+	emscripten_async_call(startGameAsync, nullptr, 0);
+#else
+	startGame();
+#endif
 
 	return 0;
 }
