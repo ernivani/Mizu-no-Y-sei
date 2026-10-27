@@ -14,6 +14,7 @@
 #include <cmath>
 #include <stdlib.h>
 #include <deque>
+#include <algorithm>
 
 #include "renderwindow.h"
 #include "entity.h"
@@ -33,7 +34,6 @@ std::vector<SDL_Texture*> playerTex;
 SDL_Texture* arrow;
 SDL_Texture* highscoreBox;
 SDL_Texture* deathOverlay;
-// SDL_Texture* logo;
 
 std::vector<SDL_Texture*> sharkTex;
 
@@ -48,8 +48,8 @@ TTF_Font* font32_outline;
 TTF_Font* font24;
 TTF_Font* font16;
 
-SDL_Color white = { 255, 255, 255 };
-SDL_Color black = { 0, 0, 0 };
+SDL_Color white = { 255, 255, 255, 255 };
+SDL_Color black = { 0, 0, 0, 255 };
 
 Mix_Chunk* jumpSfx;
 Mix_Chunk* fallSfx;
@@ -59,7 +59,6 @@ Mix_Chunk* clickSfx;
 // sharks
 std::vector<Shark> sharks;
 Uint32 lastSharkSpawnTime = 0;
-int sharkSpawnInterval = 5000;  // Initial interval in milliseconds
 
 
 Uint32 lastTime = SDL_GetTicks();
@@ -107,7 +106,6 @@ bool init()
 	arrow = window.loadTexture("res/textures/arrow.png");
 	highscoreBox = window.loadTexture("res/textures/highscore_box.png");
 	deathOverlay = window.loadTexture("res/textures/death_overlay.png");
-	// logo = window.loadTexture("res/textures/logo.png");
 
 	font32 = TTF_OpenFont("res/fonts/cocogoose.ttf", 32);
 	font32_outline = TTF_OpenFont("res/fonts/cocogoose.ttf", 32);
@@ -119,8 +117,6 @@ bool init()
 	fallSfx = Mix_LoadWAV("res/sounds/fall.wav");
 	hitSfx = Mix_LoadWAV("res/sounds/hit.wav");
 	clickSfx = Mix_LoadWAV("res/sounds/click.wav");
-	Mix_PlayChannel(-1, jumpSfx, 0);
-	sharks.push_back(Shark(800, RenderWindow::getHeight() - 150, sharkTex));
 	return true;
 }
 
@@ -136,31 +132,30 @@ struct BackgroundLayer {
 std::deque<BackgroundLayer> backgroundLayers;
 
 bool initBackgroundLayers() {
-    backgroundLayers.push_back({0,0, 25.0f, far, 256, 192});
-    backgroundLayers.push_back({0, 0, 40.0f, sand, 256, 192}); 
-	backgroundLayers.push_back({0, 0, 60.0f, foregroundMerged, 512, 192});
+    backgroundLayers.push_back({0, 0, 20.0f, far, 256, 192});
+    backgroundLayers.push_back({0, 0, 45.0f, sand, 256, 192});
+	backgroundLayers.push_back({0, 0, 90.0f, foregroundMerged, 512, 192});
     return true;
 }
 
 void renderRepeatingBackground() {
+	float scale = static_cast<float>(RenderWindow::getHeight()) / 192.f;
 
     for (auto& bg : backgroundLayers) {
+		int tileW = static_cast<int>(bg.width * scale);
+		int tileH = static_cast<int>(bg.height * scale);
+		if (tileW <= 0)
+			continue;
+
         bg.positionx -= bg.speed * deltaTime;
+		while (bg.positionx <= -tileW)
+			bg.positionx += tileW;
+		while (bg.positionx > 0)
+			bg.positionx -= tileW;
 
-        // Render the background layer multiple times to cover the entire screen
-        int x = static_cast<int>(bg.positionx);
-		int y = 0;
-        while (x < RenderWindow::getWidth()) {
-            // Calculate scaled dimensions to fit the screen
-            float scaleX = static_cast<float>(RenderWindow::getWidth()) / bg.width;
-            float scaleY = static_cast<float>(RenderWindow::getHeight() ) / bg.height;
-            int scaledWidth = static_cast<int>(bg.width * scaleX);
-            int scaledHeight = static_cast<int>(bg.height * scaleY);
-
-            // Render the background layer with scaled dimensions
-            SDL_Rect dstRect = {x, y, scaledWidth, scaledHeight};
+        for (float x = bg.positionx; x < RenderWindow::getWidth(); x += tileW) {
+            SDL_Rect dstRect = {static_cast<int>(x), 0, tileW, tileH};
             SDL_RenderCopy(window.getRenderer(), bg.texture, nullptr, &dstRect);
-            x += scaledWidth;
         }
     }
 }
@@ -170,17 +165,71 @@ bool load = init();
 Player player(RenderWindow::getWidth() / 2, RenderWindow::getHeight() - 64, playerTex);
 
 
+int laneCount()
+{
+	return std::max(2, RenderWindow::getHeight() / 160);
+}
+
+int sharkCap()
+{
+	int cap = std::max(1, laneCount() - 1);
+	int score = player.getScoreInt();
+	if (score < 12)
+		return 1;
+	if (score < 30)
+		return std::min(cap, 2);
+	return cap;
+}
+
+Uint32 sharkInterval()
+{
+	float ms = std::max(1500.f, 3000.f - player.getScoreInt() * 30.f);
+	return static_cast<Uint32>(ms);
+}
+
+void spawnShark()
+{
+	int lanes = laneCount();
+	int laneH = RenderWindow::getHeight() / lanes;
+	const int drawH = 64;
+	std::vector<int> openLanes;
+
+	for (int i = 0; i < lanes; i++)
+	{
+		float laneY = i * laneH + (laneH - drawH) / 2.f;
+		bool occupied = false;
+		for (auto& shark : sharks)
+		{
+			if (std::abs(shark.getY() - laneY) < laneH * 0.55f)
+				occupied = true;
+		}
+		if (!occupied)
+			openLanes.push_back(i);
+	}
+	if (openLanes.empty())
+		return;
+
+	int lane = openLanes[rand() % openLanes.size()];
+	float y = lane * laneH + (laneH - drawH) / 2.f;
+	float speed = std::min(190.f, 105.f + player.getScoreInt() * 1.5f);
+	sharks.push_back(Shark(RenderWindow::getWidth() + 12, y, sharkTex, speed));
+	lastSharkSpawnTime = SDL_GetTicks();
+}
+
 void reset()
 {
 	player.reset();
 	sharks.clear();
+	lastSharkSpawnTime = SDL_GetTicks();
 }
 void gameLoop()
 {
 	SDL_Event event;
 	
     currentTime = SDL_GetTicks();
-    deltaTime = (currentTime - lastTime) / 1000.0f; 
+    deltaTime = (currentTime - lastTime) / 1000.0f;
+	if (deltaTime > 0.05f)
+		deltaTime = 0.05f;
     lastTime = currentTime;
 
  	while (SDL_PollEvent(&event)) 
@@ -198,6 +247,7 @@ void gameLoop()
 					if (event.button.button == SDL_BUTTON_LEFT && SDL_GetTicks() > 2500)
 					{
 						mainMenu = false;
+						lastSharkSpawnTime = SDL_GetTicks();
 						Mix_PlayChannel(-1, clickSfx, 0);
 					}
 				}
@@ -241,33 +291,23 @@ void gameLoop()
 			window.clear();
 			renderRepeatingBackground();
 
-			// window.render(SCREEN_WIDTH/2 - 234, SCREEN_HEIGHT/2 - 94 - 30, logo);
-			window.renderCenter(0, 90 + sin(SDL_GetTicks()/100) * 2, "Click to start", font24, white);
+			window.renderCenter(0, -24, "Steer with the cursor.", font16, white);
+			window.renderCenter(0, 4, "A lane always stays open.", font16, white);
+			window.renderCenter(0, 48 + sin(SDL_GetTicks() / 100.f) * 2, "Click to start", font24, white);
 			window.display();
 		}
 	}
 	else
 	{
-		if (currentTime - lastSharkSpawnTime > sharkSpawnInterval) {
-			float randomHeight = static_cast<float>(rand() % (RenderWindow::getHeight() - 100));  // Random height from 0 to window height minus 100
-			sharks.push_back(Shark(RenderWindow::getWidth(), randomHeight, sharkTex));
-			lastSharkSpawnTime = currentTime;
+		sharks.erase(std::remove_if(sharks.begin(), sharks.end(), [](Shark& shark) {
+			return shark.isOffScreen();
+		}), sharks.end());
 
-			// Decrease interval based on the score to make game harder
-			sharkSpawnInterval = std::max(1000, 5000 - (player.getScoreInt() * 10));
-		}
+		if (player.isDead() == ALIVE && sharks.size() < static_cast<size_t>(sharkCap()) && currentTime - lastSharkSpawnTime > sharkInterval())
+			spawnShark();
+
 		if (player.isDead() == ALIVE)
-		{
 			player.update(deltaTime);
-		}
-		else if (!playedDeathSFX) {
-			
-			if (player.isDead() == HOLE_DEATH)
-			{
-				Mix_PlayChannel(-1, fallSfx, 0);
-			}
-			playedDeathSFX = true;
-		}
 
 		window.clear();
         renderRepeatingBackground();
@@ -276,14 +316,22 @@ void gameLoop()
 			SDL_Rect destRect;
 			destRect.x = static_cast<int>(shark.getX());
 			destRect.y = static_cast<int>(shark.getY());
-			destRect.w = shark.getWidth() * 2;
-			destRect.h = shark.getHeight() * 2;
+			destRect.w = shark.getDrawWidth();
+			destRect.h = shark.getDrawHeight();
 
 			SDL_RenderCopy(window.getRenderer(), shark.getCurrentTexture(), NULL, &destRect);
 
-			if (shark.isTouchingPlayer(player)) {
+			if (player.isDead() == ALIVE && shark.isTouchingPlayer(player))
 				player.setDead(SHARK_DEATH);
-			}
+		}
+
+		if (player.isDead() != ALIVE && !playedDeathSFX)
+		{
+			if (player.isDead() == HOLE_DEATH)
+				Mix_PlayChannel(-1, fallSfx, 0);
+			else if (player.isDead() == SHARK_DEATH)
+				Mix_PlayChannel(-1, hitSfx, 0);
+			playedDeathSFX = true;
 		}
 
 
@@ -311,10 +359,12 @@ void gameLoop()
 			window.renderCenter(0, 12, "Click to retry.", font16, white);
 		}
 		
-		int mouseX, mouseY;
-		SDL_GetMouseState(&mouseX, &mouseY);
-		SDL_Color attractionZoneColor = {0, 255, 0, 255};
-		window.drawCircle(mouseX, mouseY, 100.0f, attractionZoneColor, false);
+		if (player.isDead() == ALIVE)
+		{
+			int mouseX, mouseY;
+			SDL_GetMouseState(&mouseX, &mouseY);
+			window.drawBubble(mouseX, mouseY, static_cast<int>(Player::steerRadius));
+		}
 
 		window.display();
 	}
@@ -330,8 +380,11 @@ int main(int argc, char* args[])
 	#else
 	while (gameRunning) 
 	{
+		Uint32 frameStart = SDL_GetTicks();
     	gameLoop();
-    	SDL_Delay(16);
+		Uint32 elapsed = SDL_GetTicks() - frameStart;
+		if (elapsed < 16)
+			SDL_Delay(16 - elapsed);
 	}
 	#endif
 

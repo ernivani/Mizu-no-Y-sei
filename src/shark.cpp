@@ -9,23 +9,21 @@
 #include "entity.h"
 #include "player.h"
 
-Shark::Shark(float p_x, float p_y, std::vector<SDL_Texture*> p_tex)
-    : Entity(p_x, p_y, p_tex), velocityX(-200), velocityY(0), textures(p_tex) {}
+Shark::Shark(float p_x, float p_y, std::vector<SDL_Texture*> p_tex, float speed)
+    : Entity(p_x, p_y, p_tex), velocityX(-speed), velocityY(0), textures(p_tex) {}
 
 bool Shark::isTouchingPlayer(Player& p_player) {
-    float playerX = p_player.getX();
-    float playerY = p_player.getY();
-    float playerWidth = p_player.getWidth();
-    float playerHeight = p_player.getHeight();
+    const float sharkScale = 0.72f;
+    float sharkWidth = getDrawWidth() * sharkScale;
+    float sharkHeight = getDrawHeight() * sharkScale;
+    float sharkX = getX() + (getDrawWidth() - sharkWidth) / 2.f;
+    float sharkY = getY() + (getDrawHeight() - sharkHeight) / 2.f;
 
-    float hitboxScale = 0.5f;
-    float hitboxWidthReduction = getWidth() * (1 - hitboxScale) / 2;
-    float hitboxHeightReduction = getHeight() * (1 - hitboxScale) / 2;
-
-    float sharkX = getX() + hitboxWidthReduction;
-    float sharkY = getY() + hitboxHeightReduction;
-    float sharkWidth = getWidth() * hitboxScale;
-    float sharkHeight = getHeight() * hitboxScale;
+    const float playerScale = 0.8f;
+    float playerWidth = p_player.getWidth() * playerScale;
+    float playerHeight = p_player.getHeight() * playerScale;
+    float playerX = p_player.getX() + (p_player.getWidth() - playerWidth) / 2.f;
+    float playerY = p_player.getY() + (p_player.getHeight() - playerHeight) / 2.f;
 
     bool collisionX = sharkX + sharkWidth >= playerX && playerX + playerWidth >= sharkX;
     bool collisionY = sharkY + sharkHeight >= playerY && playerY + playerHeight >= sharkY;
@@ -33,19 +31,31 @@ bool Shark::isTouchingPlayer(Player& p_player) {
     return collisionX && collisionY;
 }
 
+int Shark::getDrawWidth() {
+    return getWidth() * 2;
+}
+
+int Shark::getDrawHeight() {
+    return getHeight() * 2;
+}
+
+bool Shark::isOffScreen() {
+    return getX() + getDrawWidth() < 0;
+}
+
 void Shark::move(float deltaTime) {
-    setX(getX() + velocityX * deltaTime);  // Move shark left
+    setX(getX() + velocityX * deltaTime);
 }
 
 void Shark::update(float deltaTime) {
     move(deltaTime);
-    if (getX() + getWidth() < 0) {
-        setX(RenderWindow::getWidth());  // Reset shark to the right side when it goes off screen
-    }
 
-    // Update texture to the next frame in the list
-    currentTextureIndex = (currentTextureIndex + 1) % textures.size();  // Cycle through textures
-    setTexture(currentTextureIndex);  // Set the texture to the current index
+    animTimer += deltaTime;
+    const float frameTime = 0.1f;
+    while (animTimer >= frameTime && !textures.empty()) {
+        animTimer -= frameTime;
+        currentTextureIndex = (currentTextureIndex + 1) % textures.size();
+    }
 }
 
 void Shark::reset() {

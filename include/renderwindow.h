@@ -23,6 +23,7 @@ public:
 	void display();
 	void cleanUp();
     void drawCircle(int centreX, int centreY, int radius, SDL_Color color, bool fill);
+	void drawBubble(int centreX, int centreY, int radius);
 	SDL_Renderer* getRenderer();
 	SDL_Window* getWindow();
 

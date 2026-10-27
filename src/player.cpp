@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <cmath>
+#include <fstream>
 #include <vector>
 #include <string>
 
@@ -8,10 +9,11 @@
 #include "renderwindow.h"
 #include "entity.h"
 
-const float GRAVITY = 9.81;
-const float WATER_DRAG = 1;
-const int ALIVE = 0;
-const int SHARK_DEATH = 1;
+const float GRAVITY = 36.f;
+const float CURRENT = -90.f;
+const float ATTRACT = 8.f;
+const float DRAG = 2.6f;
+const float MAX_SPEED = 200.f;
 const int HOLE_DEATH = 2;
 
 Player::Player(float p_x, float p_y, std::vector<SDL_Texture*> p_tex)
@@ -19,6 +21,7 @@ Player::Player(float p_x, float p_y, std::vector<SDL_Texture*> p_tex)
 {
 	setX(RenderWindow::getWidth() / 2 - getWidth() / 2);
 	setY(RenderWindow::getHeight() - getHeight() - 64);
+	loadHighscore();
 }
 
 float Player::distanceFromCursor()
@@ -36,32 +39,42 @@ void Player::moveWithCursor(float deltaTime)
 	int mouseY = 0;
 	SDL_GetMouseState(&mouseX, &mouseY);
 
-	float distance = distanceFromCursor();
-	if (distance < 100)
+	float cx = getX() + getWidth() / 2.f;
+	float cy = getY() + getHeight() / 2.f;
+	float dx = mouseX - cx;
+	float dy = mouseY - cy;
+	float distance = sqrt(dx * dx + dy * dy);
+
+	float ax = CURRENT;
+	float ay = GRAVITY;
+	if (distance < steerRadius)
 	{
-		velocityX += (mouseX - (getX() + getWidth() / 2)) * 0.1f * deltaTime;
-		velocityY += (mouseY - (getY() + getHeight() / 2)) * 0.1f * deltaTime;
-	}
-	else
-	{
-		velocityX *= WATER_DRAG;
-		velocityY *= WATER_DRAG;
+		float influence = 1.f - distance / steerRadius;
+		ax += dx * ATTRACT * influence;
+		ay += dy * ATTRACT * influence;
 	}
 
-	velocityY += GRAVITY * deltaTime * 0.1f;
+	velocityX += ax * deltaTime;
+	velocityY += ay * deltaTime;
 
-	setX(getX() + velocityX);
-	setY(getY() + velocityY);
+	float drag = exp(-DRAG * deltaTime);
+	velocityX *= drag;
+	velocityY *= drag;
 
-	// check if the player is out of bounds
-	if (getX() < 0 || getX() > RenderWindow::getWidth() || getY() < -getHeight())
+	float speed = sqrt(velocityX * velocityX + velocityY * velocityY);
+	if (speed > MAX_SPEED)
 	{
-		dead = HOLE_DEATH; // Changing to CURSOR_DEATH since the player is hitting a boundary
+		velocityX = velocityX / speed * MAX_SPEED;
+		velocityY = velocityY / speed * MAX_SPEED;
 	}
-	else if (getY() > RenderWindow::getHeight()  + getHeight())
-	{
+
+	setX(getX() + velocityX * deltaTime);
+	setY(getY() + velocityY * deltaTime);
+
+	cx = getX() + getWidth() / 2.f;
+	cy = getY() + getHeight() / 2.f;
+	if (cx < 0 || cx > RenderWindow::getWidth() || cy < 0 || cy > RenderWindow::getHeight())
 		dead = HOLE_DEATH;
-	}
 }
 
 void Player::animEyes()
@@ -76,14 +89,18 @@ void Player::animEyes()
 
 void Player::update(float deltaTime)
 {
-	timer++;
-	score = timer / 50; 
-	if (score > highscore)
+	survived += deltaTime;
+	int nextScore = static_cast<int>(survived);
+	if (nextScore != score)
 	{
-		highscore = score;
+		score = nextScore;
+		if (score > highscore)
+		{
+			highscore = score;
+			saveHighscore();
+		}
 	}
 
-	setX(getX() - 1); //autoscroll
 	animEyes();
 	moveWithCursor(deltaTime);
 }
@@ -98,9 +115,9 @@ const char* Player::getScore()
 
 const char* Player::getHighscore()
 {
-   static std::string s;
-    s = "BEST: " + std::to_string(score);
-    return s.c_str();
+	static std::string s;
+	s = "BEST: " + std::to_string(highscore);
+	return s.c_str();
 }
 
 int Player::getScoreInt()
@@ -123,10 +140,25 @@ void Player::reset()
 	setX(RenderWindow::getWidth() / 2 - getWidth() / 2);
 	setY(RenderWindow::getHeight()  - getHeight() - 64);
 	score = 0;
-	timer = 0;
+	survived = 0;
 	velocityX = 0;
 	velocityY = 0;
 	dead = 0;
+}
+
+void Player::loadHighscore()
+{
+	std::ifstream in("highscore.txt");
+	int saved = 0;
+	if (in >> saved && saved > 0)
+		highscore = saved;
+}
+
+void Player::saveHighscore()
+{
+	std::ofstream out("highscore.txt");
+	if (out)
+		out << highscore;
 }
 
 float Player::clamp(float p_value, float p_min, float p_max)

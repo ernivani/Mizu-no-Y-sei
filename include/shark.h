@@ -11,12 +11,16 @@
 class Shark : public Entity {
 private:
     float velocityX, velocityY;
+    float animTimer = 0;
     std::vector<SDL_Texture*> textures;
     size_t currentTextureIndex = 0;
 
 public:
-    Shark(float p_x, float p_y, std::vector<SDL_Texture*> p_tex);
+    Shark(float p_x, float p_y, std::vector<SDL_Texture*> p_tex, float speed);
     bool isTouchingPlayer(Player& p_player);
+    bool isOffScreen();
+    int getDrawWidth();
+    int getDrawHeight();
     void move(float deltaTime);
     void update(float deltaTime);
     void reset();

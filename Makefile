@@ -7,7 +7,8 @@ OUT_DIR = out
 CC = g++
 EMCC = emcc
 
-EM_FLAGS = -O2 -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s SDL2_IMAGE_FORMATS="['png']" -s USE_SDL_TTF=2 -s USE_SDL_MIXER=2 --preload-file res
+EM_FLAGS = -O2 -s DEFAULT_TO_CXX -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s SDL2_IMAGE_FORMATS="['png']" -s USE_SDL_TTF=2 -s USE_SDL_MIXER=2 -s SDL2_MIXER_FORMATS="['wav']" -s ALLOW_MEMORY_GROWTH=1 --preload-file res --shell-file web/shell.html
+OUT_JS = $(OUT_DIR)/index.html
 
 ifeq ($(OS),Windows_NT)
     RM = del /Q
@@ -20,7 +21,7 @@ ifeq ($(OS),Windows_NT)
     OUT = $(OUT_DIR)$(SEP)main$(EXE)
     RUN_CMD = $(OUT)
     LIB_DIRS = -Llib
-    LIBS = $(LIB_DIRS) -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer
+    LIBS = $(LIB_DIRS) -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer -mwindows
     COPY_DLLS = $(foreach DLL, $(DLLS), $(COPY) $(DLL) $(OUT_DIR) &)
     COPY_RES = $(XCOPY) res $(OUT_DIR)$(SEP)res /E /I /Y
 else

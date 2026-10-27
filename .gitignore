@@ -1,3 +1,8 @@
 .vscode
 out/*.exe
+out/*.html
+out/*.js
+out/*.wasm
+out/*.data
+out/highscore.txt
 .trunk

@@ -8,6 +8,8 @@
 
 class Player : public Entity {
 public:	
+	static constexpr float steerRadius = 130.f;
+
 	Player(float p_x, float p_y, std::vector<SDL_Texture*> p_tex);
 	float distanceFromCursor();
 	void moveWithCursor(float deltaTime);
@@ -22,8 +24,10 @@ private:
 	float velocityX, velocityY;
 	void animEyes();
 	float clamp(float p_value, float p_min, float p_max);
+	void loadHighscore();
+	void saveHighscore();
 	int score = 0;
 	int highscore = 0;
-	int timer = 0;
+	float survived = 0;
 	int dead = 0;
 };
